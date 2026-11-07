@@ -3,6 +3,7 @@
   const tokenKey = 'innovatex_api_token';
   let token = localStorage.getItem(tokenKey);
   let apiMode = Boolean(token);
+  const apiHost = location.protocol !== 'file:' && (location.hostname.endsWith('.onrender.com') || ['localhost', '127.0.0.1'].includes(location.hostname));
   const original = { render, logout, createChallenge, updateChallenge, deleteChallenge, toggleChallenge, join, createProposal, submitReview, shortlist, declareWinner, saveSettings, modalChallenge, editChallenge, modalReview };
   const req = async (route, options = {}) => {
     const headers = new Headers(options.headers || {});
@@ -46,7 +47,7 @@
     db.proposals = []; page = 'Overview'; await hydrate(); toast('Account created');
   }
   function authDialog() {
-    const body = `<div class="toolbar" style="margin:0 0 16px"><button class="button small" id="loginTab" type="button">Sign in</button><button class="button ghost small" id="registerTab" type="button">Create account</button></div><form id="apiAuthForm"><div class="formgrid"><div class="formgroup full" id="nameField" style="display:none"><label>Full name</label><input class="field" name="name" autocomplete="name"></div><div class="formgroup full"><label>Email</label><input required class="field" type="email" name="email" autocomplete="username"></div><div class="formgroup full"><label>Password</label><input required minlength="8" class="field" type="password" name="password" autocomplete="current-password"></div><div class="formgroup full" id="roleField" style="display:none"><label>Account role</label><select class="field" name="role"><option>Participant</option><option>Reviewer</option></select></div></div><button class="button lime" style="margin-top:17px" id="authSubmit">Sign in ↗</button><p class="mono" style="margin-top:15px">DEMO ADMIN: admin@demo.com · DemoAdmin123!<br>PARTICIPANT: aarav@demo.com · DemoUser123!<br>REVIEWER: anika@demo.com · DemoReview123!</p></form>`;
+    const body = `<div class="toolbar" style="margin:0 0 16px"><button class="button small" id="loginTab" type="button">Sign in</button><button class="button ghost small" id="registerTab" type="button">Create account</button></div><form id="apiAuthForm"><div class="formgrid"><div class="formgroup full" id="nameField" style="display:none"><label>Full name</label><input class="field" name="name" autocomplete="name"></div><div class="formgroup full"><label>Email</label><input required class="field" type="email" name="email" autocomplete="username"></div><div class="formgroup full"><label>Password</label><input required minlength="8" class="field" type="password" name="password" autocomplete="current-password"></div><div class="formgroup full" id="roleField" style="display:none"><label>Account role</label><select class="field" name="role"><option>Participant</option><option>Reviewer</option></select></div></div><button class="button lime" style="margin-top:17px" id="authSubmit">Sign in ↗</button><p class="mono" style="margin-top:15px">Sign in with your InnovateX account, or create a participant or reviewer account.</p></form>`;
     const box = modal('InnovateX workspace', body);
     let registering = false;
     const setTab = value => { registering = value; box.querySelector('#nameField').style.display = value ? '' : 'none'; box.querySelector('#roleField').style.display = value ? '' : 'none'; box.querySelector('[name=password]').autocomplete = value ? 'new-password' : 'current-password'; box.querySelector('#authSubmit').textContent = value ? 'Create account ↗' : 'Sign in ↗'; box.querySelector('#loginTab').className = `button small ${value ? 'ghost' : ''}`; box.querySelector('#registerTab').className = `button small ${value ? '' : 'ghost'}`; };
@@ -54,7 +55,7 @@
     box.querySelector('#apiAuthForm').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.currentTarget); try { if (registering) await registerAccount(f.get('name'), f.get('email'), f.get('password'), f.get('role')); else await signIn(f.get('email'), f.get('password')); box.remove(); } catch (err) { toast(err.message); } };
     return box;
   }
-  window.logout = function () { if (apiMode) { token = null; localStorage.removeItem(tokenKey); apiMode = false; user = { name: 'Alex Morgan', role: 'Administrator', email: 'admin@demo.com' }; authDialog(); } else { original.logout(); } };
+  window.logout = function () { if (apiMode) { token = null; localStorage.removeItem(tokenKey); apiMode = false; user = { name: 'Alex Morgan', role: 'Administrator', email: 'admin@demo.com' }; authDialog(); } else if (apiHost) { authDialog(); } else { original.logout(); } };
   window.render = function () { original.render(); const crumb = document.querySelector('.crumb'); if (crumb && apiMode) crumb.textContent += ' · DATABASE CONNECTED'; };
 
   window.createChallenge = safe(async e => {
@@ -163,6 +164,6 @@
   });
   window.releaseFeedback = safe(async (id, released) => { await req(`/proposals/${id}/feedback`, { method: 'PUT', body: JSON.stringify({ released }) }); const p = db.proposals.find(x => x.id === id); p.feedbackReleased = released; toast(released ? 'Feedback released to the participant' : 'Feedback hidden'); render(); });
   window.downloadAttachment = safe(async id => { const response = await fetch(`/api/proposals/${id}/attachment`, { headers: { Authorization: `Bearer ${token}` } }); if (!response.ok) { const d = await response.json().catch(() => ({})); throw new Error(d.error || 'Could not download attachment'); } const blob = await response.blob(), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `proposal-${id}`; a.click(); URL.revokeObjectURL(url); });
-  if (apiMode) req('/auth/me').then(({ user: active }) => { user = active; sessionStorage.setItem('innovatex_user', JSON.stringify(user)); return hydrate(); }).catch(err => { token = null; localStorage.removeItem(tokenKey); apiMode = false; toast(err.message); render(); });
-  else render();
+  if (apiMode) req('/auth/me').then(({ user: active }) => { user = active; sessionStorage.setItem('innovatex_user', JSON.stringify(user)); return hydrate(); }).catch(err => { token = null; localStorage.removeItem(tokenKey); apiMode = false; toast(err.message); render(); if (apiHost) authDialog(); });
+  else { render(); if (apiHost) authDialog(); }
 })();

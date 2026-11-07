@@ -30,6 +30,18 @@ Demo credentials:
 
 Set `SEED_DEMO=false` for production. Demo users are only inserted into an empty database when `SEED_DEMO=true`.
 
+## Deploy the full application
+
+GitHub Pages serves the browser-only demo. To use real sign-in, MongoDB, and the API, deploy the same repository as a Render web service using the included `render.yaml` Blueprint:
+
+1. Sign in to Render with the GitHub account that owns this repository. Choose **New → Blueprint**, select `YogeshKumar623/InnovateX`, and review the service settings.
+2. During setup, fill the prompted environment values in Render: `MONGODB_URI` (your Atlas driver URI, with the database name `innovatex`), `ADMIN_EMAIL` (your email), and `ADMIN_PASSWORD` (a new password with at least 12 characters). These values belong in Render's private environment form only; never put them in GitHub or this README. Render generates `JWT_SECRET` automatically.
+3. In Atlas **Network Access**, allow the outbound IP addresses shown in the Render service's network settings. Add those addresses in Atlas; keep the database user credentials in `MONGODB_URI`.
+4. Deploy the Blueprint. The health check is `/api/health`. Once it reports healthy, open the Render service URL. The app presents its real sign-in/create-account dialog and stores account data in Atlas. The first deploy creates the configured administrator account and sample challenges if those collections are empty.
+5. Sign in with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` you configured. Participants and reviewers can create accounts using **Create account**.
+
+Free Render web services can sleep when idle, so the first visit may take a short while to wake. Their local file storage is temporary; proposal attachments may be lost when the service restarts. MongoDB data remains in Atlas. Keep `SEED_DEMO=false` on the public service so the published demo passwords are not created.
+
 ## API routes
 
 All protected routes use `Authorization: Bearer <token>`.

@@ -139,7 +139,29 @@ async function seedDemo() {
     if (['Finalist', 'Reviewed'].includes(sample[i][5])) await Review.create({ proposal: proposals[i]._id, reviewer, scores, weightedScore, feedback: 'A promising proposal. Consider adding a small pilot with measurable outcomes.' });
   }
 }
-if (databaseConnected) await seedDemo();
+async function seedStarterChallenges() {
+  if (await Challenge.estimatedDocumentCount()) return;
+  await Challenge.insertMany([
+    { title: 'The Circular City Challenge', category: 'Sustainability', status: 'Open', description: 'Reimagine the way our cities use, reuse and regenerate resources. Build a future that leaves nothing behind.', deadline: new Date('2026-12-18'), prize: '₹1,50,000' },
+    { title: 'AI for Everyday Health', category: 'Healthcare', status: 'Open', description: 'Make preventive care more personal, accessible and human through thoughtful applications of artificial intelligence.', deadline: new Date('2026-12-04'), prize: '₹1,00,000' },
+    { title: 'Fintech for All', category: 'Finance', status: 'Open', description: 'Design inclusive financial tools that give every community a fair shot at building a secure future.', deadline: new Date('2027-01-10'), prize: '₹75,000' },
+    { title: 'Learning Without Limits', category: 'Education', status: 'Coming soon', description: 'Open up new paths to learning with tools that meet every student where they are.', deadline: new Date('2027-01-30'), prize: '₹50,000' }
+  ]);
+}
+async function bootstrapAdministrator() {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD;
+  if (!email && !password) return;
+  if (!email || !/^\S+@\S+\.\S+$/.test(email) || !password || password.length < 12) throw new Error('ADMIN_EMAIL and an ADMIN_PASSWORD of at least 12 characters are required together.');
+  if (await User.exists({ role: 'Administrator' })) return;
+  await User.create({ name: process.env.ADMIN_NAME?.trim() || 'InnovateX Administrator', email, role: 'Administrator', passwordHash: await bcrypt.hash(password, 12) });
+  console.log('Initial InnovateX administrator account created.');
+}
+if (databaseConnected) {
+  await seedDemo();
+  if (process.env.SEED_DEMO !== 'true') await seedStarterChallenges();
+  await bootstrapAdministrator();
+}
 
 app.use('/api', (_req, res) => fail(res, 404, 'API route not found'));
 app.use(express.static(here));
